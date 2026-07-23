@@ -156,6 +156,31 @@ class ChatHandler:
         from trade_db import TradeDB
         db = TradeDB()
         lp = db.get_live_price("XAUUSD")
+        
+        is_stale = False
+        if lp:
+            try:
+                import datetime
+                updated_dt = datetime.datetime.fromisoformat(lp["updated_at"])
+                now = datetime.datetime.now()
+                if (now - updated_dt).total_seconds() > 30:
+                    is_stale = True
+            except Exception:
+                pass
+        else:
+            is_stale = True
+            
+        candles = db.get_candles("XAUUSD", tf_choice, limit=1)
+        
+        if is_stale or not candles:
+            await query.edit_message_text(
+                "❌ <b>خطأ: المنصة غير متصلة حالياً | Platform Offline</b>\n\n"
+                "عذراً، الاتصال بين منصة MT5 والسيرفر منقطع حالياً، ولا توجد بيانات أسعار كافية للتحليل.\n"
+                "يرجى التأكد من تشغيل الإكسبريت واتصاله بالسيرفر على جهازك وتغذية الأسعار، وحاول مجدداً بمجرد عودة الاتصال وتحديث الشارت!",
+                parse_mode='HTML'
+            )
+            return CHATTING
+            
         current_price = lp["bid"] if lp else 0.0
         
         # Fetch the exact EMA34 and EMA50 for the chosen timeframe
@@ -168,8 +193,6 @@ class ChatHandler:
         
         state = await tracker.get_state()
         
-        # Get last closed candle details from DB
-        candles = db.get_candles("XAUUSD", tf_choice, limit=1)
         last_candle = candles[0] if candles else {}
         last_vol = last_candle.get("volume", 0)
         last_delta = last_candle.get("delta", 0.0)
