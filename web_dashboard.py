@@ -947,12 +947,18 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
             <h1>🥇 NERO FLOW CONTROL PANEL</h1>
             <p>لوحة التحكم واختبارات المكونات المدمجة للسيرفر والذكاء الاصطناعي</p>
             
-            <div style="margin-top: 15px; display: inline-flex; align-items: center; background: rgba(102, 252, 241, 0.08); border: 1px solid rgba(102, 252, 241, 0.25); padding: 8px 22px; border-radius: 50px; box-shadow: 0 0 15px rgba(102, 252, 241, 0.08); gap: 15px;">
-                <span style="font-size: 0.95rem; color: #8b9bb4; font-weight: 600;">🟡 سعر الذهب المباشر (MT5 Gold Price):</span>
-                <span id="live-gold-price" style="font-size: 1.25rem; color: #66fcf1; font-weight: 700; font-family: 'Courier New', monospace; letter-spacing: 1px; text-shadow: 0 0 10px rgba(102, 252, 241, 0.4);">جاري الجلب...</span>
-                <span style="width: 10px; height: 10px; background-color: #fbbf24; border-radius: 50%; display: inline-block; animation: blink 1s infinite alternate;" id="price-status-dot"></span>
-                <span style="font-size: 0.95rem; color: #8b9bb4; font-weight: 600; border-left: 1px solid rgba(255,255,255,0.15); padding-left: 15px;">🌊 موجة المتوسطات (EMA Wave Zone):</span>
-                <span id="live-ema-wave" style="font-size: 1.15rem; color: #fbbf24; font-weight: 700; font-family: 'Courier New', monospace;">EMA34: -- | EMA50: --</span>
+            <div style="margin-top: 15px; display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 100%; box-sizing: border-box;">
+                <!-- Row 1: Live Gold Price -->
+                <div style="display: flex; align-items: center; justify-content: center; background: rgba(102, 252, 241, 0.08); border: 1px solid rgba(102, 252, 241, 0.25); padding: 8px 25px; border-radius: 50px; box-shadow: 0 0 15px rgba(102, 252, 241, 0.08); gap: 12px; white-space: nowrap; max-width: 100%;">
+                    <span style="font-size: 0.95rem; color: #8b9bb4; font-weight: 600;">🟡 سعر الذهب المباشر (MT5 Gold Price):</span>
+                    <span id="live-gold-price" style="font-size: 1.25rem; color: #66fcf1; font-weight: 700; font-family: 'Courier New', monospace; letter-spacing: 1px; text-shadow: 0 0 10px rgba(102, 252, 241, 0.4);">جاري الجلب...</span>
+                    <span style="width: 10px; height: 10px; background-color: #fbbf24; border-radius: 50%; display: inline-block; animation: blink 1s infinite alternate;" id="price-status-dot"></span>
+                </div>
+                <!-- Row 2: EMA Wave Zone -->
+                <div style="display: flex; flex-direction: column; align-items: center; background: rgba(251, 191, 36, 0.06); border: 1px solid rgba(251, 191, 36, 0.2); padding: 10px 25px; border-radius: 12px; gap: 6px; max-width: 100%; width: 100%; box-sizing: border-box;">
+                    <span style="font-size: 0.88rem; color: #a1a1aa; font-weight: 600; display: flex; align-items: center; gap: 5px;">🌊 موجة المتوسطات (EMA Wave Zone)</span>
+                    <span id="live-ema-wave" style="font-size: 0.95rem; color: #fbbf24; font-weight: 700; font-family: 'Courier New', monospace; text-align: center; line-height: 1.5; word-break: break-word; white-space: normal; width: 100%;">M1: -- | M5: --</span>
+                </div>
             </div>
         </header>
 
