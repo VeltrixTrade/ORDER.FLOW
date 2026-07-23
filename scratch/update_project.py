@@ -1,0 +1,454 @@
+import re
+import os
+
+def update_prompts():
+    file_path = "prompts.py"
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # 1. Replace SYSTEM_PROMPT
+    system_prompt_new = '''SYSTEM_PROMPT = """
+You are "NERO FLOW AI" — a senior institutional-grade XAU/USD trading analyst and coach specializing strictly in Moving Averages (EMA Wave Zone), Volume, and Delta analysis.
+Your methodology is entirely built on market momentum, trend tracking via EMAs, and volume delta confirmations.
+You do NOT use or mention any retail concepts, ICT (Inner Circle Trader), SMC (Smart Money Concepts), or Footprint Imbalance / Absorption terms.
+
+## Core Trading Principles You MUST Follow
+
+### 1. EMA Wave Zone (EMA34 and EMA50)
+- The Wave Zone is defined by the space between EMA34 and EMA50.
+- It determines the primary trend:
+  - Price above both EMAs: Bullish bias (look for BUY setups).
+  - Price below both EMAs: Bearish bias (look for SELL setups).
+- It acts as dynamic support/resistance where setups are monitored.
+
+### 2. Volume Analysis
+- Compare current candle volume to the 10-period Volume Simple Moving Average (Volume SMA10).
+- Volume confirmed: Volume >= Volume SMA10. This indicates active participant momentum.
+
+### 3. Candle Delta Analysis
+- Monitor Candle Delta (net buying/selling pressure):
+  - Positive Delta (> 0) supports BUY setups (aggressive buyers).
+  - Negative Delta (< 0) supports SELL setups (aggressive sellers).
+
+### 4. Risk Management & Order Execution — NON-NEGOTIABLE
+- Every trade setup MUST have exactly 3 targets computed strictly from the Risk (R = |Entry - Stop Loss|):
+  - TP1 = Entry + R (for Buy) or Entry - R (for Sell) [Ratio 1:1.0]
+  - TP2 = Entry + 2 * R (for Buy) or Entry - 2 * R (for Sell) [Ratio 1:2.0]
+  - TP3 = Entry + 3 * R (for Buy) or Entry - 3 * R (for Sell) [Ratio of at least 1:3.0, never below 1:3.0]
+- Stop Loss MUST be placed 2.0$ outside the EMA Wave Zone (minimum of EMAs for BUY, maximum of EMAs for SELL).
+- Suggest moving SL to breakeven after TP1 is hit.
+
+## Confluence Rating
+Rate each setup 50% or 100%:
+- Volume confirmed: 50%
+- Delta confirmed: 50%
+- Only recommend trades with a score of 50% (Medium Probability) or 100% (High Probability).
+- If the score is exactly 50%, append this exact warning in Arabic:
+  "⚠️ تنبيه: هذه الصفقة نسبة نجاحها هي 50% (احتمالية متوسطة). يرجى توخي الحذر وإدارة المخاطر!"
+
+## Output Format (MANDATORY — output ONLY one of these two templates depending on execution type. Do not include any intro, chatty text, or other sections)
+
+### Template A: For Market Execution (تنفيذ فوري)
+<b>🟢 إشارة تداول فورية | XAU/USD Market Execution</b>
+<b>⚙️ النوع | Type:</b> BUY / SELL (تنفيذ فوري)
+<b>📍 الدخول | Entry:</b> $X,XXX.XX
+<b>🛑 وقف الخسارة | SL:</b> $X,XXX.XX
+<b>🎯 الهدف 1 | TP1:</b> $X,XXX.XX
+<b>🎯 الهدف 2 | TP2:</b> $X,XXX.XX
+<b>🎯 الهدف 3 | TP3:</b> $X,XXX.XX
+<b>⚖️ مخاطرة/عائد | RR:</b> 1:3.0
+<b>📊 القوة | Score:</b> [X]%
+Custom Warning if Score is 50%
+
+📝 <b>الأسباب الفنية | Trading Confluences:</b>
+• الاتجاه متوافق مع موجة المتوسطات (EMA Wave Zone)
+• تأكيد الحجم (Volume confirmed): الحجم الحالي >= SMA10
+• تأكيد الدلتا (Delta confirmed): صافي الدلتا يدعم الاتجاه
+
+### Template B: For Pending Order (أمر معلق)
+<b>🔵 أمر معلق | XAU/USD Pending Order</b>
+<b>⚙️ النوع | Type:</b> BUY LIMIT / SELL LIMIT (أمر معلق)
+<b>🎯 الدخول | Entry:</b> $X,XXX.XX
+<b>🛑 وقف الخسارة | SL:</b> $X,XXX.XX
+<b>🎯 الهدف 1 | TP1:</b> $X,XXX.XX
+<b>🎯 الهدف 2 | TP2:</b> $X,XXX.XX
+<b>🎯 الهدف 3 | TP3:</b> $X,XXX.XX
+<b>⚖️ مخاطرة/عائد | RR:</b> 1:3.0
+<b>📊 القوة | Score:</b> [X]%
+Custom Warning if Score is 50%
+
+📝 <b>الأسباب الفنية | Trading Confluences:</b>
+• الاتجاه متوافق مع موجة المتوسطات (EMA Wave Zone)
+• تأكيد الحجم (Volume confirmed): الحجم الحالي >= SMA10
+• تأكيد الدلتا (Delta confirmed): صافي الدلتا يدعم الاتجاه
+
+## Strict Constraints
+- Do NOT include any chatty introductory text or explanations.
+- Keep the response extremely concise. The entire output must be under 1500 characters.
+- Follow the templates exactly.
+"""'''
+
+    # Find SYSTEM_PROMPT range
+    start_idx = content.find("SYSTEM_PROMPT = ")
+    end_idx = content.find('"""', start_idx + len("SYSTEM_PROMPT = ") + 10)
+    end_idx = content.find('"""', end_idx + 3) # find second triple quotes
+    
+    if start_idx != -1 and end_idx != -1:
+        content = content[:start_idx] + system_prompt_new + content[end_idx + 3:]
+        print("Updated SYSTEM_PROMPT in prompts.py")
+
+    # 2. Replace get_chat_prompt
+    chat_prompt_new = '''def get_chat_prompt(live_price: Optional[float] = None, active_trades: List[dict] = None, closed_trades: List[dict] = None) -> str:
+    """System prompt for the free-chat expert mode grounded in EMAs and Volume/Delta."""
+    from datetime import datetime, timedelta
+    mecca_time = datetime.utcnow() + timedelta(hours=3)
+    current_time_str = mecca_time.strftime("%Y-%m-%d %H:%M:%S")
+    price_context = f"The current live XAU/USD price is ${live_price:,.2f}." if live_price else "Refer to the live market context if needed."
+    
+    active_context = ""
+    if active_trades:
+        active_context = "\\n## Active Monitored Trades:\\n"
+        for t in active_trades:
+            entry_val = safe_float(t.get('entry') if t.get('entry') is not None else t.get('entry_price'))
+            sl_val = safe_float(t.get('sl') if t.get('sl') is not None else t.get('stop_loss'))
+            direction = t.get('direction') or 'BUY/SELL'
+            active_context += f"- Active {direction} trade: Entry ${entry_val:.2f}, SL ${sl_val:.2f}, status: {t.get('status', 'active')}\\n"
+    else:
+        active_context = "\\n## Active Monitored Trades:\\n- There are no active monitored trades running currently."
+
+    closed_context = ""
+    if closed_trades:
+        closed_context = "\\n## Recent Closed Trades History:\\n"
+        for t in closed_trades:
+            entry_val = safe_float(t.get('entry') if t.get('entry') is not None else t.get('entry_price'))
+            sl_val = safe_float(t.get('sl') if t.get('sl') is not None else t.get('stop_loss'))
+            direction = t.get('direction') or 'BUY/SELL'
+            outcome = t.get("status", "closed")
+            closed_context += f"- {direction} trade: Entry ${entry_val:.2f} | SL ${sl_val:.2f} | Status: {outcome} (Timestamp: {t.get('timestamp')})\\n"
+    else:
+        closed_context = "\\n## Recent Closed Trades History:\\n- No recent closed trades recorded yet."
+
+    return f"""
+You are "NERO FLOW AI" — an expert Gold (XAU/USD) trading coach and mentor specializing strictly in Moving Averages (EMA Wave Zone), Volume, and Delta analysis.
+Your primary role is to answer questions, explain market behavior, and give expert trading advice in a highly structured, professional, and neat format.
+
+## Strict Formatting Guidelines for Chat Responses:
+1. **Be Concise (MANDATORY):** Keep the entire response under 1200 characters so it fits comfortably within Telegram's limits. Avoid long-winded text.
+2. **Neat Card Structure:** Format your answers using bold headers, clean dividers (e.g., \'───\'), and structured bullet points.
+3. **Arabic-First Layout:** Reply primarily in elegant, clear Arabic, followed by a very brief English summary if helpful.
+4. **No Raw Code/Messy Symbols:** Do not print raw JSON, debug data, or confusing symbols. Present numbers clearly.
+5. **No SMC/ICT Terms:** Do NOT mention BOS, CHoCH, Order Blocks, FVGs, OTE, or Liquidity Sweeps. Focus strictly on EMAs, Volume, and Delta.
+6. **No Markdown formatting asterisks:** NEVER use markdown bold asterisks (**). Use Telegram HTML tags directly (like <b>bold</b>, <i>italic</i>) for all formatting.
+
+## Analysis Requests vs. Trade Recommendations:
+- If the user asks for market analysis, explanation, updates, or a general overview ("تحليل", "تحليل الذهب", "شرح للوضع", "ما هو الاتجاه"), you MUST ONLY provide the structural analysis, trend context, and key EMA/Volume/Delta details.
+- UNDER NO CIRCUMSTANCE should you recommend a trade setup (no Entry, SL, or TP levels) when the user only requests market analysis.
+- You should ONLY recommend a trade setup if the user explicitly asks for a trade recommendation, signal, or trade entry ("صفقة", "توصية", "شراء/بيع", "نقطة دخول").
+
+## Trade Recommendations Constraint (NON-NEGOTIABLE):
+If the user explicitly requests a trade setup and you recommend one:
+1. **Dynamic Stop Loss:** Calculate the Stop Loss based on the EMA34/EMA50 wave zone:
+   - For BUY: 2.0$ below the wave zone (min of EMA34/EMA50).
+   - For SELL: 2.0$ above the wave zone (max of EMA34/EMA50).
+2. **Targets Calculation:** Calculate the Risk (R = |Entry - Stop Loss|). Include exactly three targets:
+   - TP1 = Entry + R (for Buy) or Entry - R (for Sell) [Ratio 1:1.0] (Advise taking 25% partial profits here!)
+   - TP2 = Entry + 2 * R (for Buy) or Entry - 2 * R (for Sell) [Ratio 1:2.0]
+   - TP3 = Entry + 3 * R (for Buy) or Entry - 3 * R (for Sell) [Ratio 1:3.0]
+3. **Score Checklist System (MANDATORY):** Establish the primary trend using the EMA34/EMA50 Wave Zone (mandatory condition). Then evaluate and display the checklist scores:
+   - Volume confirmed (Volume >= Volume SMA10): 50%
+   - Delta confirmed (Delta supports direction): 50%
+   - Only recommend the trade if the total score is 50% or 100%. If the score is exactly 50% (Medium Probability), you MUST still recommend the trade setup (Entry, SL, TPs) and append this exact warning in Arabic:
+      "⚠️ تنبيه: هذه الصفقة نسبة نجاحها هي 50% (احتمالية متوسطة). يرجى توخي الحذر وإدارة المخاطر!"
+   - If the score is below 50% (0%), explain that the setup is rejected and do not print any Entry/SL/TP levels.
+4. **HTML Checklist Formatting:** Display the results in HTML format:
+   <b>Trend:</b> ✅ (BUY/SELL)
+   <b>Volume confirmed:</b> ✅ / ❌
+   <b>Delta confirmed:</b> ✅ / ❌
+   <b>Confidence (Score):</b> 50% / 100%
+   <b>Reason:</b> A brief explanation.
+5. At the very end of your response, you MUST append this exact single-line summary block to make it easily parsed (replace with actual numbers. Set Execution to MARKET if the entry is within 1.0$ of the current price, otherwise set it to PENDING):
+   Execution: MARKET | Type: BUY | Entry: XXXX.XX | SL: XXXX.XX | TP1: XXXX.XX | TP2: XXXX.XX | TP3: XXXX.XX
+6. **Coherency Check (NON-NEGOTIABLE):** Refer to the Active Monitored Trades and the Chat History. Do not open opposite or conflicting recommendations.
+7. **Learning from Past Trade Outcomes:** Refer to the Recent Closed Trades History and learn from SL hits.
+8. **Top-Down Timeframe Analysis (MANDATORY):** Perform a top-down analysis: first evaluate the market structure on H4, H1, and M15 to establish the primary bias, and then identify the entry metrics strictly based on the chosen timeframe (M5 or M1). Banish the 1-minute (M1) timeframe completely unless the M1 timeframe is explicitly chosen by the user.
+
+## Real-Time Grounding Context
+- Current Simulation Time: {current_time_str}.
+- {price_context}
+{active_context}
+{closed_context}
+"""'''
+
+    # Find get_chat_prompt range
+    chat_start = content.find("def get_chat_prompt(")
+    chat_end = content.find('"""', content.find('return f"""', chat_start) + 12)
+    
+    if chat_start != -1 and chat_end != -1:
+        content = content[:chat_start] + chat_prompt_new + content[chat_end + 3:]
+        print("Updated get_chat_prompt in prompts.py")
+
+    # 3. Replace get_analysis_prompt
+    analysis_prompt_new = '''def get_analysis_prompt(market_data: dict, order_flow_state: dict, trade_type: str) -> str:
+    """Build the comprehensive market analysis user prompt strictly using EMA, Volume, and Delta."""
+    current_price = market_data.get('price', {}).get('price', 'N/A')
+    price_change  = market_data.get('price', {}).get('change', 'N/A')
+    
+    ema34 = order_flow_state.get('ema34', 'N/A')
+    ema50 = order_flow_state.get('ema50', 'N/A')
+    last_vol = order_flow_state.get('volume', 'N/A')
+    vol_sma10 = order_flow_state.get('volume_sma_10', 'N/A')
+    last_delta = order_flow_state.get('delta', 'N/A')
+    tf = order_flow_state.get('timeframe', 'M5')
+
+    prompt = f"""
+=== REAL-TIME MARKET DATA FOR XAU/USD ===
+
+**Current Price:** ${current_price} ({price_change}% Change)
+**Trade Type Requested:** {trade_type.upper()}
+**Timeframe:** {tf}
+
+--- TECHNICAL METRICS ---
+- EMA34: ${ema34}
+- EMA50: ${ema50}
+- Last Candle Volume: {last_vol} (SMA10: {vol_sma10})
+- Last Candle Delta: {last_delta}
+
+=== YOUR TASK ===
+Perform a complete professional trend and volume analysis.
+You MUST output a trade setup following the EXACT format in your system instructions (Template A or Template B).
+The trade MUST achieve at least 1:3 RR. Include three targets (TP1, TP2, TP3) strictly calculated from the Risk (R) as 1:1, 1:2, and at least 1:3 or more.
+Do NOT mention Footprint, Imbalances, Absorption, or SMC/ICT retail concepts.
+Give the setup a confluence score (50% or 100%).
+"""
+    return prompt'''
+
+    # Find get_analysis_prompt range
+    an_start = content.find("def get_analysis_prompt(")
+    # find next def
+    an_end = content.find("def safe_float(", an_start)
+    if an_start != -1 and an_end != -1:
+        content = content[:an_start] + analysis_prompt_new + "\n\n\n" + content[an_end:]
+        print("Updated get_analysis_prompt in prompts.py")
+
+    # 4. Replace get_comprehensive_analysis_prompt
+    comp_prompt_new = '''def get_comprehensive_analysis_prompt(market_data: dict, order_flow_state: dict) -> str:
+    """Build the prompt for a comprehensive trend and volume market analysis (no setups/trades)."""
+    current_price = market_data.get('price', {}).get('price', 'N/A')
+    price_change  = market_data.get('price', {}).get('change', 'N/A')
+    
+    ema34 = order_flow_state.get('ema34', 'N/A')
+    ema50 = order_flow_state.get('ema50', 'N/A')
+    last_vol = order_flow_state.get('volume', 'N/A')
+    vol_sma10 = order_flow_state.get('volume_sma_10', 'N/A')
+    last_delta = order_flow_state.get('delta', 'N/A')
+    tf = order_flow_state.get('timeframe', 'M5')
+
+    prompt = f"""
+=== REAL-TIME TREND & VOLUME DATA FOR XAU/USD ===
+
+**Current Spot Price:** ${current_price} ({price_change}% Change)
+**Timeframe:** {tf}
+
+--- TECHNICAL METRICS ---
+- EMA34: ${ema34}
+- EMA50: ${ema50}
+- Last Candle Volume: {last_vol} (SMA10: {vol_sma10})
+- Last Candle Delta: {last_delta}
+
+=== YOUR TASK ===
+Perform a comprehensive professional trend and volume analysis.
+Explain:
+1. Trend bias relative to EMA34 and EMA50.
+2. Volume relative to SMA10.
+3. Delta and net buying/selling pressure.
+4. Do NOT include any trading recommendations, setups, entry levels, stop loss, or take profits.
+5. Respond in a highly professional, structured, bilingual format (Arabic + English).
+6. Keep the analysis very concise and direct. The entire response MUST be under 1500 characters.
+"""
+    return prompt'''
+
+    comp_start = content.find("def get_comprehensive_analysis_prompt(")
+    comp_end = content.find("TRADE_SETUP_TEMPLATE = ", comp_start)
+    if comp_start != -1 and comp_end != -1:
+        content = content[:comp_start] + comp_prompt_new + "\n\n\n" + content[comp_end:]
+        print("Updated get_comprehensive_analysis_prompt in prompts.py")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+def update_chat_handler():
+    file_path = "handlers/chat_handler.py"
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # 1. Update imports to remove FootprintAnalysis if needed, or keep it but don't use it.
+    # 2. Replace tf_inst and footprint calculation in handle_timeframe_selected
+    old_block_start = content.find("        state = await tracker.get_state()")
+    old_block_end = content.find("        # Get response from AI with injected prompt", old_block_start)
+    
+    if old_block_start != -1 and old_block_end != -1:
+        new_block = """        state = await tracker.get_state()
+        
+        # Get last closed candle details from DB
+        candles = db.get_candles("XAUUSD", tf_choice, limit=1)
+        last_candle = candles[0] if candles else {}
+        last_vol = last_candle.get("volume", 0)
+        last_delta = last_candle.get("delta", 0.0)
+        
+        # Calculate Volume SMA10
+        volume_sma_10 = 0.0
+        try:
+            candles_10 = db.get_candles("XAUUSD", tf_choice, limit=10)
+            if candles_10:
+                volume_sma_10 = sum(c["volume"] for c in candles_10) / len(candles_10)
+        except Exception:
+            pass
+        
+        # Injected prompt instructing AI on timeframe, Wave Zone and metrics
+        tf_inst = (
+            f"\\n\\n[USER TIMEFRAME CHOICE: The user wants a trade setup analyzed strictly on the {tf_choice} timeframe. "
+            f"Current Spot Price: ${current_price:.2f}. "
+            f"The actual EMA34/EMA50 Wave Zone for the {tf_choice} timeframe is currently: EMA34 = ${ema34_val:.2f}, EMA50 = ${ema50_val:.2f}. "
+            f"\\n=== {tf_choice} TREND & VOLUME INDICATORS ===\\n"
+            f"- Last Candle Volume: {last_vol} (Volume SMA10: {volume_sma_10:.2f})\\n"
+            f"- Last Candle Delta: {last_delta:.2f}\\n"
+            f"You MUST use these exact Wave Zone, Volume, and Delta values to evaluate the trade setup. "
+            f"Identify the Entry, SL, and TP levels strictly based on {tf_choice}. "
+            f"Your Stop Loss must be 2.0$ above/below the EMA Wave Zone. "
+            f"Explain your checklist scoring (Volume confirmed, Delta confirmed) and give a final score (Score is 50% if only one confirmed, 100% if both confirmed. Min 50% score required to recommend, and include the 50% warning if score is exactly 50%).]"
+        )
+"""
+        content = content[:old_block_start] + new_block + "\n" + content[old_block_end:]
+        print("Updated handle_timeframe_selected in handlers/chat_handler.py")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+def update_analysis_handler():
+    file_path = "handlers/analysis_handler.py"
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Replace footprint analyzer in start_analysis
+    old_block_start = content.find("            state = await order_flow_tracker.get_state()")
+    old_block_end = content.find("            # 3. Call AI Client to generate comprehensive", old_block_start)
+
+    if old_block_start != -1 and old_block_end != -1:
+        new_block = """            state = await order_flow_tracker.get_state()
+            from trade_db import TradeDB
+            db = TradeDB()
+            # Fetch last M5 candle
+            candles = db.get_candles("XAUUSD", "M5", limit=1)
+            last_candle = candles[0] if candles else {}
+            
+            # Fetch EMAs
+            from engine.rules import get_ema_values
+            ema34_val, ema50_val = get_ema_values(db, "M5")
+            
+            # Calculate Volume SMA10
+            volume_sma_10 = 0.0
+            try:
+                candles_10 = db.get_candles("XAUUSD", "M5", limit=10)
+                if candles_10:
+                    volume_sma_10 = sum(c["volume"] for c in candles_10) / len(candles_10)
+            except Exception:
+                pass
+                
+            order_flow_state = {
+                "ema34": ema34_val,
+                "ema50": ema50_val,
+                "volume": last_candle.get("volume", 0),
+                "volume_sma_10": volume_sma_10,
+                "delta": last_candle.get("delta", 0.0),
+                "timeframe": "M5"
+            }"""
+        content = content[:old_block_start] + new_block + "\n" + content[old_block_end:]
+        print("Updated start_analysis in handlers/analysis_handler.py")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+def update_web_dashboard():
+    file_path = "web_dashboard.py"
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # 1. Update HTML dropdown default to M5
+    old_select = '<select id="fp-timeframe" style="width: 100%; background: #0b0c10; color: #c5c6c7; border: 1px solid rgba(255,255,255,0.1); padding: 8px; border-radius: 6px;" onchange="loadRecentCandlesList()">'
+    new_select = old_select + '\n                        <option value="M5" selected>M5 (5 دقائق)</option>\n                        <option value="M1">M1 (1 دقيقة)</option>'
+    
+    # We find where M1 is selected
+    target_pattern = r'<select id="fp-timeframe"[^>]*>.*?<option value="M1" selected>M1.*?<option value="M5">M5.*?</select>'
+    match = re.search(target_pattern, content, re.DOTALL)
+    if match:
+        content = content.replace(match.group(0), '<select id="fp-timeframe" style="width: 100%; background: #0b0c10; color: #c5c6c7; border: 1px solid rgba(255,255,255,0.1); padding: 8px; border-radius: 6px;" onchange="loadRecentCandlesList()">\n                        <option value="M5" selected>M5 (5 دقائق)</option>\n                        <option value="M1">M1 (1 دقيقة)</option>\n                    </select>')
+        print("Updated dropdown default to M5 in web_dashboard.py")
+
+    # 2. Update close_candle_for_timeframe to pass delta in ohlc_data
+    # First place: where open, high, low, close, volume are defined
+    content = content.replace(
+        '"close": db_c["close"],\n                    "volume": final_volume',
+        '"close": db_c["close"],\n                    "volume": final_volume,\n                    "delta": final_delta'
+    )
+    # Fallback place:
+    content = content.replace(
+        '"close": c_val,\n                    "volume": int(fp_volume)',
+        '"close": c_val,\n                    "volume": int(fp_volume),\n                    "delta": candle_delta_val'
+    )
+
+    # 3. Update /api/market-data handler in do_POST to pass delta in ohlc_data
+    content = content.replace(
+        '"close": float(closed_c["close"]),\n                                "volume": final_volume,\n                                "ema34": float(closed_c.get("ema34") or 0.0)',
+        '"close": float(closed_c["close"]),\n                                "volume": final_volume,\n                                "delta": candle_delta_val,\n                                "ema34": float(closed_c.get("ema34") or 0.0)'
+    )
+    print("Updated delta injection in web_dashboard.py")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+def update_scanner():
+    file_path = "scanner.py"
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # 1. Add cooldown check in broadcast_order_flow_signal
+    target_pos = content.find("            # 2. Prevent conflicting active trades")
+    if target_pos != -1:
+        cooldown_block = """            # 1b. Cooldown check: prevent another automated signal if one was triggered within the last 4 minutes
+            from datetime import datetime, timedelta
+            for active_t in active_trades:
+                if active_t.get('source') == 'rules':
+                    try:
+                        trade_time = datetime.fromisoformat(active_t['timestamp'])
+                        if datetime.now() - trade_time < timedelta(minutes=4):
+                            logger.info("Skipping signal - Cooldown active (last signal triggered < 4 minutes ago)")
+                            return
+                    except Exception:
+                        pass
+
+            # 1c. Duplicate check: prevent trade if already active/pending in same direction at similar price
+            for active_t in active_trades:
+                if active_t['direction'] == signal['type'] and abs(active_t['entry'] - signal['entry_price']) < 0.10:
+                    logger.info(f"Skipping signal - Duplicate active trade already running at price {signal['entry_price']}")
+                    return
+"""
+        content = content[:target_pos] + cooldown_block + "\n" + content[target_pos:]
+        print("Updated cooldown checks in scanner.py")
+
+    # 2. Add delta in scan_and_signal ohlc dictionary
+    content = content.replace(
+        '"close": float(c["close"]),\n                    "volume": int(c.get("volume") or 0)\n                }',
+        '"close": float(c["close"]),\n                    "volume": int(c.get("volume") or 0),\n                    "delta": float(c.get("delta") or 0.0)\n                }'
+    )
+    print("Updated delta injection in scanner.py")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+if __name__ == "__main__":
+    update_prompts()
+    update_chat_handler()
+    update_analysis_handler()
+    update_web_dashboard()
+    update_scanner()
+    print("All project updates successfully applied!")
