@@ -322,9 +322,33 @@ class MarketScanner:
         metrics_snapshot: Optional[Dict] = None
     ):
         """Logs a rejected signal in the SQLite DB and alerts the admin chat."""
+        # Enrich metrics_snapshot with delta, volume, and EMAs
+        if metrics_snapshot is None:
+            metrics_snapshot = {}
+        else:
+            metrics_snapshot = dict(metrics_snapshot)
+            
+        try:
+            candles = self.db.get_candles("XAUUSD", "M5", limit=1)
+            if candles:
+                c = candles[0]
+                metrics_snapshot["volume"] = int(c.get("volume") or 0)
+                metrics_snapshot["delta"] = float(c.get("delta") or 0.0)
+            else:
+                metrics_snapshot["volume"] = 0
+                metrics_snapshot["delta"] = 0.0
+
+            from engine.rules import get_all_emas
+            ema10, ema34, ema50 = get_all_emas(self.db, "M5")
+            metrics_snapshot["ema10"] = ema10
+            metrics_snapshot["ema34"] = ema34
+            metrics_snapshot["ema50"] = ema50
+        except Exception as e:
+            logger.error(f"Failed to enrich metrics_snapshot in handle_signal_rejection: {e}")
+
         # 1. Log to DB
         import json
-        metrics_json = json.dumps(metrics_snapshot) if metrics_snapshot else None
+        metrics_json = json.dumps(metrics_snapshot)
         try:
             self.db.log_rejected_signal(
                 signal_type=signal_type,
@@ -440,8 +464,10 @@ class MarketScanner:
 🎯 <b>أسباب الدخول الفنية | Entry Triggers:</b>
 {reasons_formatted}
 
-🛡️ <b>مستويات الدعم والمقاومة الديناميكية | Dynamic S/R Levels:</b>
-• Level 1: ${signal['metrics_snapshot'].get('ema34', 0.0):.2f} | Level 2: ${signal['metrics_snapshot'].get('ema50', 0.0):.2f}
+📈 <b>مستويات المتوسطات المتحركة | Moving Average Levels:</b>
+• EMA 10: $${signal['metrics_snapshot'].get('ema10', 0.0):.2f}
+• EMA 34: $${signal['metrics_snapshot'].get('ema34', 0.0):.2f}
+• EMA 50: $${signal['metrics_snapshot'].get('ema50', 0.0):.2f}
 
 {'─'*35}
 ⚠️ <i>تنويه: تحليل تلقائي للذهب. يرجى استخدام إدارة مخاطر صارمة.</i>

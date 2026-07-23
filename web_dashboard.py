@@ -606,8 +606,16 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             try:
                 from trade_db import TradeDB
+                from datetime import datetime, timedelta
                 db = TradeDB()
                 trades = db.get_recent_trades(limit=50)
+                for t in trades:
+                    try:
+                        utc_dt = datetime.strptime(t["timestamp"], "%Y-%m-%d %H:%M:%S")
+                        broker_dt = utc_dt + timedelta(hours=BROKER_TIMEZONE_OFFSET_HOURS)
+                        t["broker_time"] = broker_dt.strftime("%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        t["broker_time"] = t["timestamp"]
                 self.wfile.write(json.dumps(trades).encode('utf-8'))
             except Exception as e:
                 self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
@@ -1090,11 +1098,10 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
                         <tr style="border-bottom: 2px solid rgba(255, 255, 255, 0.08); color: #8b9bb4;">
                             <th style="padding: 10px;">التوقيت</th>
                             <th style="padding: 10px;">الاتجاه</th>
-                            <th style="padding: 10px; text-align: center;">الاتجاه (EMA Wave)</th>
-                            <th style="padding: 10px; text-align: center;">الحجم > SMA10</th>
-                            <th style="padding: 10px; text-align: center;">سيولة البصمة</th>
-                            <th style="padding: 10px; text-align: center;">الامتصاص</th>
-                            <th style="padding: 10px;">سبب الرفض</th>
+                            <th style="padding: 10px; text-align: center;">الدلتا (Delta)</th>
+                            <th style="padding: 10px; text-align: center;">الحجم (Volume)</th>
+                            <th style="padding: 10px; text-align: center;">الموفنقات (EMA 10 / 34 / 50)</th>
+                            <th style="padding: 10px;">سبب الرفض التفصيلي</th>
                         </tr>
                     </thead>
                     <tbody id="rejected-signals-body">
@@ -1188,16 +1195,29 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
                         timestampStr += 'Z';
                     }
                     const date = new Date(timestampStr).toLocaleString("ar-EG");
-                    const emoji = val => val === 1 ? "<span style='color: #10b981; font-weight: bold;'>✅</span>" : "<span style='color: #ef4444; font-weight: bold;'>❌</span>";
                     const signalColor = s.signal_type === 'BUY' ? '#10b981' : s.signal_type === 'SELL' ? '#ef4444' : '#8b9bb4';
+                    
+                    let metrics = {};
+                    try {
+                        metrics = JSON.parse(s.metrics_snapshot || '{}');
+                    } catch (e) {
+                        metrics = {};
+                    }
+                    
+                    const deltaVal = metrics.delta !== undefined ? metrics.delta.toFixed(1) : '--';
+                    const volumeVal = metrics.volume !== undefined ? metrics.volume : '--';
+                    
+                    const ema10 = metrics.ema10 !== undefined && metrics.ema10 !== 0 ? `$${metrics.ema10.toFixed(2)}` : '--';
+                    const ema34 = metrics.ema34 !== undefined && metrics.ema34 !== 0 ? `$${metrics.ema34.toFixed(2)}` : '--';
+                    const ema50 = metrics.ema50 !== undefined && metrics.ema50 !== 0 ? `$${metrics.ema50.toFixed(2)}` : '--';
+                    const emasStr = `10: ${ema10}<br>34: ${ema34}<br>50: ${ema50}`;
                     
                     html += `<tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='none'">
                         <td style="padding: 12px; font-family: monospace; text-align: right;">${date}</td>
                         <td style="padding: 12px; color: ${signalColor}; font-weight: bold; text-align: right;">${s.signal_type}</td>
-                        <td style="padding: 12px; text-align: center;">${emoji(s.price_near_boundary)}</td>
-                        <td style="padding: 12px; text-align: center;">${emoji(s.volume_confirmed)}</td>
-                        <td style="padding: 12px; text-align: center;">${emoji(s.stacked_imbalance)}</td>
-                        <td style="padding: 12px; text-align: center;">${emoji(s.absorption)}</td>
+                        <td style="padding: 12px; text-align: center; font-family: monospace; color: #66fcf1;">${deltaVal}</td>
+                        <td style="padding: 12px; text-align: center; font-family: monospace; color: #c5c6c7;">${volumeVal}</td>
+                        <td style="padding: 12px; text-align: center; font-size: 0.82rem; line-height: 1.4; color: #8b9bb4; font-family: monospace;">${emasStr}</td>
                         <td style="padding: 12px; color: #fbbf24; font-size: 0.85rem; text-align: right; white-space: pre-line; line-height: 1.6;">${s.reason}</td>
                     </tr>`;
                 });
@@ -1246,7 +1266,10 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
                     const strat = t.strategy || 'Trend Continuation';
                     
                     html += `<tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='none'">
-                        <td style="padding: 12px; font-family: monospace; text-align: right;">${date}</td>
+                        <td style="padding: 12px; font-family: monospace; text-align: right; line-height: 1.4;">
+                            ${date}
+                            <br><small style="color: #66fcf1; font-size: 0.78rem;">(MT5: ${t.broker_time || t.timestamp})</small>
+                        </td>
                         <td style="padding: 12px; color: #c5c6c7; text-align: right;">${strat}</td>
                         <td style="padding: 12px; color: ${signalColor}; font-weight: bold; text-align: right;">${t.direction}</td>
                         <td style="padding: 12px; text-align: right;">$${t.entry_price.toFixed(2)}</td>

@@ -505,6 +505,19 @@ class TrendReversalStrategy:
                 }
             }
         else:
+            # Format rejections audit for Reversal
+            rejections_list = []
+            vol_symbol = "✅" if vol_ok else "❌"
+            rejections_list.append(f"- الحجم: {total_volume:.1f} (المطلوب >= {volume_sma_10:.1f}) {vol_symbol}")
+            delta_symbol = "✅" if delta_ok else "❌"
+            delta_desc = "عكس الاتجاه" if not delta_ok else "مع الاتجاه"
+            rejections_list.append(f"- الدلتا: {delta_val:.1f} ({delta_desc}) {delta_symbol}")
+            
+            fail_reason = (
+                f"[Reversal] التقييم: {score}% (مرفوض ❌ - المطلوب 70% أو أكثر)\n"
+                + "\n".join(rejections_list)
+            )
+
             # Check expiration or increment monitored count
             m_state["monitored_candles_count"] += 1
             if m_state["monitored_candles_count"] > 5:
@@ -522,11 +535,21 @@ class TrendReversalStrategy:
                         volume_confirmed=vol_ok,
                         stacked_imbalance=False,
                         absorption=False,
-                        reason="[Reversal] Exceeded 5 candles monitoring window",
+                        reason="[Reversal] تجاوز نافذة المراقبة 5 شموع بدون رصد إشارة تأكيد عكس الاتجاه ❌",
                         metrics_snapshot=state
                     )
             else:
                 save_state(REVERSAL_STATE_FILE, m_state)
+                if verbose_callback:
+                    verbose_callback(
+                        signal_type=signal_type,
+                        price_near_boundary=1,
+                        volume_confirmed=vol_ok,
+                        stacked_imbalance=False,
+                        absorption=False,
+                        reason=fail_reason,
+                        metrics_snapshot=state
+                    )
 
             return None
 
