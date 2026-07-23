@@ -106,13 +106,13 @@ class MarketScanner:
             from engine.parser import order_flow_tracker
             state = await order_flow_tracker.get_state()
             
-            # Fetch recent candles to get last M5 candle
-            candles = self.db.get_candles("XAUUSD", "M5", limit=1)
+            # Fetch recent candles to get last M5 closed candle
+            candles = self.db.get_candles("XAUUSD", "M5", limit=2)
             if not candles:
                 logger.warning("Autopilot Scanner: No candles found in database to evaluate.")
                 return
                 
-            c = candles[0]
+            c = candles[1] if len(candles) >= 2 else candles[0]
             ohlc = {
                 "open": float(c["open"]),
                 "high": float(c["high"]),
@@ -197,12 +197,12 @@ class MarketScanner:
                 # Force=False (Automatic check) -> Run rules engine first
                 from engine.rules import evaluate_rules
                 
-                # Fetch recent candles to get last M5 candle
-                candles = self.db.get_candles("XAUUSD", "M5", limit=1)
+                # Fetch recent candles to get last M5 closed candle
+                candles = self.db.get_candles("XAUUSD", "M5", limit=2)
                 if not candles:
                     return False, "No candles found in database to evaluate rules."
                     
-                c = candles[0]
+                c = candles[1] if len(candles) >= 2 else candles[0]
                 ohlc = {
                     "open": float(c["open"]),
                     "high": float(c["high"]),

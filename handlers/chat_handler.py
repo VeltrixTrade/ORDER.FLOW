@@ -170,7 +170,7 @@ class ChatHandler:
         else:
             is_stale = True
             
-        candles = db.get_candles("XAUUSD", tf_choice, limit=1)
+        candles = db.get_candles("XAUUSD", tf_choice, limit=2)
         
         if is_stale or not candles:
             await query.edit_message_text(
@@ -193,7 +193,7 @@ class ChatHandler:
         
         state = await tracker.get_state()
         
-        last_candle = candles[0] if candles else {}
+        last_candle = candles[1] if len(candles) >= 2 else (candles[0] if candles else {})
         last_vol = last_candle.get("volume", 0)
         last_delta = last_candle.get("delta", 0.0)
         
