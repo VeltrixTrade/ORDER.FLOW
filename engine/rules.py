@@ -218,9 +218,6 @@ class TrendContinuationStrategy:
         # Save State
         save_state(CONTINUATION_STATE_FILE, m_state)
 
-        if not m_state["is_monitoring"]:
-            return None
-
         signal_type = m_state["trend_bias"]
 
         # Evaluate volume and delta confluences
