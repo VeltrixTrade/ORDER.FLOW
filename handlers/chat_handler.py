@@ -170,7 +170,7 @@ class ChatHandler:
         else:
             is_stale = True
             
-        candles = db.get_candles("XAUUSD", tf_choice, limit=2)
+        candles = db.get_candles("XAUUSD", tf_choice, limit=11)
         
         if is_stale or not candles:
             await query.edit_message_text(
@@ -193,18 +193,19 @@ class ChatHandler:
         
         state = await tracker.get_state()
         
-        last_candle = candles[1] if len(candles) >= 2 else (candles[0] if candles else {})
+        # get_candles() returns chronological order (oldest to newest).
+        # candles[-1] is the active/open candle (volume 0).
+        # closed_candles[-1] is the last fully closed candle!
+        closed_candles = candles[:-1] if len(candles) >= 2 else candles
+        last_candle = closed_candles[-1] if closed_candles else {}
         last_vol = last_candle.get("volume", 0)
         last_delta = last_candle.get("delta", 0.0)
         
-        # Calculate Volume SMA10
+        # Calculate Volume SMA10 strictly from closed candles
         volume_sma_10 = 0.0
-        try:
-            candles_10 = db.get_candles("XAUUSD", tf_choice, limit=10)
-            if candles_10:
-                volume_sma_10 = sum(c["volume"] for c in candles_10) / len(candles_10)
-        except Exception:
-            pass
+        if closed_candles:
+            sample = closed_candles[-10:]
+            volume_sma_10 = sum(c.get("volume", 0) for c in sample) / len(sample)
         
         # Injected prompt instructing AI on timeframe, Wave Zone and metrics
         tf_inst = (
