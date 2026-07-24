@@ -211,14 +211,18 @@ class ChatHandler:
         tf_inst = (
             f"\n\n[USER TIMEFRAME CHOICE: The user wants a trade setup analyzed strictly on the {tf_choice} timeframe. "
             f"Current Spot Price: ${current_price:.2f}. "
-            f"The actual EMA34/EMA50 Wave Zone for the {tf_choice} timeframe is currently: EMA34 = ${ema34_val:.2f}, EMA50 = ${ema50_val:.2f}. "
+            f"Dynamic Key Level Zone for {tf_choice} is: Level 1 = ${ema34_val:.2f}, Level 2 = ${ema50_val:.2f}. "
             f"\n=== {tf_choice} TREND & VOLUME INDICATORS ===\n"
-            f"- Last Candle Volume: {last_vol} (Volume SMA10: {volume_sma_10:.2f})\n"
-            f"- Last Candle Delta: {last_delta:.2f}\n"
-            f"You MUST use these exact Wave Zone, Volume, and Delta values to evaluate the trade setup. "
-            f"Identify the Entry, SL, and TP levels strictly based on {tf_choice}. "
-            f"Your Stop Loss must be 2.0$ above/below the EMA Wave Zone. "
-            f"Explain your checklist scoring (Volume confirmed, Delta confirmed) and give a final score (Score is 50% if only one confirmed, 100% if both confirmed. Min 50% score required to recommend, and include the 50% warning if score is exactly 50%).]"
+            f"- Last Closed Candle Volume: {last_vol} (Volume SMA10: {volume_sma_10:.2f})\n"
+            f"- Last Closed Candle Delta: {last_delta:.2f}\n"
+            f"STRICT RULES FOR YOUR RESPONSE:\n"
+            f"1. Do NOT mention 'EMA', 'EMA34', 'EMA50', or 'موفنقات' anywhere in your response! Refer to the zone strictly as 'منطقة الموجة المحورية' or 'المستويات الديناميكية'.\n"
+            f"2. Format the checklist with Volume and Delta on SEPARATE LINES directly under each other. NEVER mix Volume and Delta on the same line!\n"
+            f"   Example formatting:\n"
+            f"   • <b>حجم التداول:</b> ❌ غير مؤكد (الحجم: {last_vol} | المتوسط: {volume_sma_10:.1f})\n"
+            f"   • <b>تدفق الدلتا:</b> ✅ تم التأكيد (الدلتا: {last_delta:.2f})\n"
+            f"3. Identify Entry, SL, and TP levels strictly for {tf_choice}.\n"
+            f"4. Your Stop Loss must be 2.0$ outside the Wave Zone.]"
         )
         
         # Get response from AI with injected prompt
