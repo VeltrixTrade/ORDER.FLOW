@@ -280,25 +280,11 @@ class ChatHandler:
         from datetime import datetime
         scanner = MarketScanner(context.bot)
         
-        # Log in SQLite DB
         from trade_db import TradeDB
         db = TradeDB()
         db_id = None
-        try:
-            db_id = db.log_trade(
-                direction=parsed['direction'],
-                entry=parsed['entry'],
-                sl=parsed['sl'],
-                tp1=parsed['tp1'],
-                tp2=parsed.get('tp2'),
-                tp3=parsed.get('tp3'),
-                trade_type="scalp",
-                asset='XAUUSD'
-            )
-        except Exception as db_err:
-            logger.error(f"Failed to log chatbot trade in SQLite: {db_err}")
             
-        parsed['db_id'] = db_id
+        parsed['db_id'] = None
         parsed['source'] = 'ai'  # exempt from active rules limits
         parsed['timestamp'] = parsed.get('timestamp') or int(datetime.utcnow().timestamp() * 1000)
         

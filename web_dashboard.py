@@ -1106,7 +1106,7 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
                             <th style="padding: 10px;">الاتجاه</th>
                             <th style="padding: 10px; text-align: center;">الدلتا (Delta)</th>
                             <th style="padding: 10px; text-align: center;">الحجم (Volume)</th>
-                            <th style="padding: 10px; text-align: center;">الموفنقات (EMA 10 / 34 / 50)</th>
+                            <th style="padding: 10px; text-align: center;">المستويات الديناميكية (1 / 2 / 3)</th>
                             <th style="padding: 10px;">سبب الرفض التفصيلي</th>
                         </tr>
                     </thead>
@@ -1216,7 +1216,7 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
                     const ema10 = metrics.ema10 !== undefined && metrics.ema10 !== 0 ? `$${metrics.ema10.toFixed(2)}` : '--';
                     const ema34 = metrics.ema34 !== undefined && metrics.ema34 !== 0 ? `$${metrics.ema34.toFixed(2)}` : '--';
                     const ema50 = metrics.ema50 !== undefined && metrics.ema50 !== 0 ? `$${metrics.ema50.toFixed(2)}` : '--';
-                    const emasStr = `10: ${ema10}<br>34: ${ema34}<br>50: ${ema50}`;
+                    const emasStr = `L1: ${ema10}<br>L2: ${ema34}<br>L3: ${ema50}`;
                     
                     html += `<tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='none'">
                         <td style="padding: 12px; font-family: monospace; text-align: right;">${date}</td>

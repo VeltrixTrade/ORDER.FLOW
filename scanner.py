@@ -331,20 +331,24 @@ class MarketScanner:
             metrics_snapshot = dict(metrics_snapshot)
             
         try:
-            candles = self.db.get_candles("XAUUSD", "M5", limit=1)
-            if candles:
-                c = candles[0]
-                metrics_snapshot["volume"] = int(c.get("volume") or 0)
-                metrics_snapshot["delta"] = float(c.get("delta") or 0.0)
-            else:
-                metrics_snapshot["volume"] = 0
-                metrics_snapshot["delta"] = 0.0
+            if "volume" not in metrics_snapshot or "delta" not in metrics_snapshot:
+                candles = self.db.get_candles("XAUUSD", "M5", limit=11)
+                closed_candles = candles[:-1] if len(candles) >= 2 else candles
+                if closed_candles:
+                    c = closed_candles[-1]
+                    if "volume" not in metrics_snapshot:
+                        metrics_snapshot["volume"] = int(c.get("volume") or 0)
+                    if "delta" not in metrics_snapshot:
+                        metrics_snapshot["delta"] = float(c.get("delta") or 0.0)
 
             from engine.rules import get_all_emas
             ema10, ema34, ema50 = get_all_emas(self.db, "M5")
-            metrics_snapshot["ema10"] = ema10
-            metrics_snapshot["ema34"] = ema34
-            metrics_snapshot["ema50"] = ema50
+            if "ema10" not in metrics_snapshot or metrics_snapshot["ema10"] <= 0:
+                metrics_snapshot["ema10"] = ema10
+            if "ema34" not in metrics_snapshot or metrics_snapshot["ema34"] <= 0:
+                metrics_snapshot["ema34"] = ema34
+            if "ema50" not in metrics_snapshot or metrics_snapshot["ema50"] <= 0:
+                metrics_snapshot["ema50"] = ema50
         except Exception as e:
             logger.error(f"Failed to enrich metrics_snapshot in handle_signal_rejection: {e}")
 
@@ -446,6 +450,14 @@ class MarketScanner:
             reasons_formatted = "\n".join([f"• {r}" for r in reasons_list]) if reasons_list else "• الشروط الفنية مستوفاة بالكامل"
             strategy_name = signal.get('strategy', 'Trend Continuation')
             
+            ms = signal.get('metrics_snapshot', {})
+            lvl1 = float(ms.get('ema10') or signal['entry_price'])
+            lvl2 = float(ms.get('ema34') or signal['entry_price'])
+            lvl3 = float(ms.get('ema50') or signal['entry_price'])
+            if lvl1 <= 0: lvl1 = signal['entry_price']
+            if lvl2 <= 0: lvl2 = signal['entry_price']
+            if lvl3 <= 0: lvl3 = signal['entry_price']
+
             final_msg = f"""
 ⚡ <b>تنبيه صفقة تداول الذهب | XAU/USD Trade Signal</b>
 {'═'*35}
@@ -466,10 +478,10 @@ class MarketScanner:
 🎯 <b>أسباب الدخول الفنية | Entry Triggers:</b>
 {reasons_formatted}
 
-📈 <b>مستويات المتوسطات المتحركة | Moving Average Levels:</b>
-• EMA 10: $${signal['metrics_snapshot'].get('ema10', 0.0):.2f}
-• EMA 34: $${signal['metrics_snapshot'].get('ema34', 0.0):.2f}
-• EMA 50: $${signal['metrics_snapshot'].get('ema50', 0.0):.2f}
+🎯 <b>المستويات المحورية الديناميكية | Dynamic Key Levels:</b>
+• Level 1: ${lvl1:,.2f}
+• Level 2: ${lvl2:,.2f}
+• Level 3: ${lvl3:,.2f}
 
 {'─'*35}
 ⚠️ <i>تنويه: تحليل تلقائي للذهب. يرجى استخدام إدارة مخاطر صارمة.</i>

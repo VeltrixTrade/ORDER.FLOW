@@ -278,6 +278,9 @@ class TrendContinuationStrategy:
                     "cvd": state.get("cvd", 0),
                     "val": 0.0,
                     "vah": 0.0,
+                    "volume": float(total_volume),
+                    "delta": float(delta_val),
+                    "ema10": ema10,
                     "ema34": ema34,
                     "ema50": ema50,
                     "score_reasons": reason_str,
@@ -300,6 +303,12 @@ class TrendContinuationStrategy:
             )
 
             if verbose_callback:
+                rej_snapshot = dict(state)
+                rej_snapshot["volume"] = float(total_volume)
+                rej_snapshot["delta"] = float(delta_val)
+                rej_snapshot["ema10"] = float(ema10)
+                rej_snapshot["ema34"] = float(ema34)
+                rej_snapshot["ema50"] = float(ema50)
                 verbose_callback(
                     signal_type=signal_type,
                     price_near_boundary=1,
@@ -307,7 +316,7 @@ class TrendContinuationStrategy:
                     stacked_imbalance=False,
                     absorption=False,
                     reason=reason,
-                    metrics_snapshot=state
+                    metrics_snapshot=rej_snapshot
                 )
             return None
 
@@ -494,6 +503,9 @@ class TrendReversalStrategy:
                     "cvd": state.get("cvd", 0),
                     "val": 0.0,
                     "vah": 0.0,
+                    "volume": float(total_volume),
+                    "delta": float(delta_val),
+                    "ema10": ema10_curr,
                     "ema34": ema34_curr,
                     "ema50": ema50_curr,
                     "score_reasons": reason_str,
