@@ -123,10 +123,9 @@ def main():
         
         # Attach bot and scanner references to running Web API server
         loop = asyncio.get_running_loop()
-        if hasattr(global_httpd, 'bot'):
-            global_httpd.bot = application.bot
-            global_httpd.loop = loop
-            global_httpd.scanner = scanner
+        global_httpd.bot = application.bot
+        global_httpd.loop = loop
+        global_httpd.scanner = scanner
         
         logger.info("Autopilot Market Scanner, report scheduler, and Web API server successfully registered in post_init hook.")
 
@@ -135,6 +134,9 @@ def main():
     port = int(os.getenv("PORT", 8080))
     server_address = ('', port)
     global_httpd = HTTPServer(server_address, WebDashboardHandler)
+    global_httpd.bot = None
+    global_httpd.loop = None
+    global_httpd.scanner = None
     def run_dashboard():
         logger.info(f"Starting MT5 API Gateway Server on port {port}...")
         global_httpd.serve_forever()

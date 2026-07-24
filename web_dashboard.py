@@ -1584,13 +1584,17 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
                         state_with_tf = state.copy()
                         state_with_tf["timeframe"] = tf
                         
+                        scanner_ref = getattr(self.server, 'scanner', None)
+                        loop_ref = getattr(self.server, 'loop', None)
+                        verbose_cb = scanner_ref.handle_signal_rejection if scanner_ref else None
+                        
                         from engine.rules import evaluate_rules
                         signal_data = evaluate_rules(
                             state_with_tf, ohlc_data, volume_sma_10=0,
-                            verbose_callback=self.server.scanner.handle_signal_rejection if self.server.scanner else None
+                            verbose_callback=verbose_cb
                         )
-                        if signal_data and self.server.scanner:
-                            asyncio.run_coroutine_threadsafe(self.server.scanner.broadcast_order_flow_signal(signal_data), self.server.loop)
+                        if signal_data and scanner_ref and loop_ref:
+                            asyncio.run_coroutine_threadsafe(scanner_ref.broadcast_order_flow_signal(signal_data), loop_ref)
                             
                     self.send_response(200)
                     self.end_headers()
@@ -1607,22 +1611,50 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
                         self.wfile.write(f"Error: {msg}".encode('utf-8'))
                         
             elif url_path == "/api/live-prices":
-                future = asyncio.run_coroutine_threadsafe(
-                    handle_live_price_async(data, self.server.bot, self.server.scanner),
-                    self.server.loop
-                )
-                try:
-                    success, msg = future.result(timeout=3.0)
-                    if success:
-                        self.send_response(200)
-                        self.end_headers()
-                        self.wfile.write(b"OK")
-                    else:
+                bot_ref = getattr(self.server, 'bot', None)
+                scanner_ref = getattr(self.server, 'scanner', None)
+                loop_ref = getattr(self.server, 'loop', None)
+                
+                if loop_ref:
+                    future = asyncio.run_coroutine_threadsafe(
+                        handle_live_price_async(data, bot_ref, scanner_ref),
+                        loop_ref
+                    )
+                    try:
+                        success, msg = future.result(timeout=3.0)
+                        if success:
+                            self.send_response(200)
+                            self.end_headers()
+                            self.wfile.write(b"OK")
+                        else:
+                            self.send_response(500)
+                            self.end_headers()
+                            self.wfile.write(f"Error: {msg}".encode('utf-8'))
+                    except Exception as e:
                         self.send_response(500)
                         self.end_headers()
-                        self.wfile.write(f"Error: {msg}".encode('utf-8'))
-                except Exception as e:
-                    self.send_response(500)
+                        self.wfile.write(f"Timeout/Error: {str(e)}".encode('utf-8'))
+                else:
+                    # Sync fallback if loop is not attached yet
+                    try:
+                        symbol = data.get("symbol", "XAUUSD")
+                        bid = float(data.get("bid", 0.0))
+                        ask = float(data.get("ask", 0.0))
+                        spread = float(data.get("spread", 0.0))
+                        server_time = str(data.get("time", ""))
+                        ema10 = float(data.get("ema10", 0.0))
+                        ema34 = float(data.get("ema34", 0.0))
+                        ema50 = float(data.get("ema50", 0.0))
+                        from trade_db import TradeDB
+                        db = TradeDB()
+                        db.save_live_price(symbol, bid, ask, spread, server_time, ema10, ema34, ema50)
+                        self.send_response(200)
+                        self.end_headers()
+                        self.wfile.write(b"OK (Sync Saved)")
+                    except Exception as sync_err:
+                        self.send_response(500)
+                        self.end_headers()
+                        self.wfile.write(f"Sync DB Error: {str(sync_err)}".encode('utf-8'))
                     self.end_headers()
                     self.wfile.write(f"Timeout/Error: {str(e)}".encode('utf-8'))
             self.wfile.write(b"Not Found")
