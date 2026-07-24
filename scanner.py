@@ -330,16 +330,17 @@ class MarketScanner:
         else:
             metrics_snapshot = dict(metrics_snapshot)
             
+        candle_ts = None
         try:
-            if "volume" not in metrics_snapshot or "delta" not in metrics_snapshot:
-                candles = self.db.get_candles("XAUUSD", "M5", limit=11)
-                closed_candles = candles[:-1] if len(candles) >= 2 else candles
-                if closed_candles:
-                    c = closed_candles[-1]
-                    if "volume" not in metrics_snapshot:
-                        metrics_snapshot["volume"] = int(c.get("volume") or 0)
-                    if "delta" not in metrics_snapshot:
-                        metrics_snapshot["delta"] = float(c.get("delta") or 0.0)
+            candles = self.db.get_candles("XAUUSD", "M5", limit=11)
+            closed_candles = candles[:-1] if len(candles) >= 2 else candles
+            if closed_candles:
+                c = closed_candles[-1]
+                candle_ts = c.get("time")
+                if "volume" not in metrics_snapshot:
+                    metrics_snapshot["volume"] = int(c.get("volume") or 0)
+                if "delta" not in metrics_snapshot:
+                    metrics_snapshot["delta"] = float(c.get("delta") or 0.0)
 
             from engine.rules import get_all_emas
             ema10, ema34, ema50 = get_all_emas(self.db, "M5")
@@ -363,7 +364,8 @@ class MarketScanner:
                 stacked_imbalance=stacked_imbalance,
                 absorption=absorption,
                 reason=reason,
-                metrics_snapshot=metrics_json
+                metrics_snapshot=metrics_json,
+                timestamp=candle_ts
             )
         except Exception as db_err:
             logger.error(f"Failed to log signal rejection in DB: {db_err}")

@@ -678,7 +678,8 @@ class TradeDB:
         stacked_imbalance: bool,
         absorption: bool,
         reason: str,
-        metrics_snapshot: Optional[str] = None
+        metrics_snapshot: Optional[str] = None,
+        timestamp: Optional[str] = None
     ) -> int:
         """Logs a rejected signal in the database for audit trail."""
         sql = """
@@ -687,7 +688,15 @@ class TradeDB:
             stacked_imbalance, absorption, reason, metrics_snapshot
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """
-        now_str = datetime.utcnow().isoformat() + "Z"
+        if timestamp:
+            now_str = str(timestamp).replace(' ', 'T')
+            if not now_str.endswith("Z"):
+                now_str += "Z"
+        else:
+            now_dt = datetime.utcnow()
+            clean_dt = now_dt.replace(second=0, microsecond=0)
+            now_str = clean_dt.isoformat() + "Z"
+
         if metrics_snapshot is not None and not isinstance(metrics_snapshot, str):
             try:
                 import json
