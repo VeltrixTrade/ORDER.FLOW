@@ -121,15 +121,24 @@ def main():
         # Start report scheduler
         asyncio.create_task(run_reports_scheduler(application.bot))
         
-        # Start Web API Gateway server linked with main loop and scanner
+        # Attach bot and scanner references to running Web API server
         loop = asyncio.get_running_loop()
-        def run_dashboard():
-            from web_dashboard import start_dashboard_server
-            port = int(os.getenv("PORT", 8080))
-            start_dashboard_server(port, application.bot, loop, scanner)
-        threading.Thread(target=run_dashboard, daemon=True).start()
+        if hasattr(global_httpd, 'bot'):
+            global_httpd.bot = application.bot
+            global_httpd.loop = loop
+            global_httpd.scanner = scanner
         
         logger.info("Autopilot Market Scanner, report scheduler, and Web API server successfully registered in post_init hook.")
+
+    # Start Web API Gateway server immediately on main startup thread so Railway port healthchecks pass instantly
+    from web_dashboard import WebDashboardHandler, HTTPServer
+    port = int(os.getenv("PORT", 8080))
+    server_address = ('', port)
+    global_httpd = HTTPServer(server_address, WebDashboardHandler)
+    def run_dashboard():
+        logger.info(f"Starting MT5 API Gateway Server on port {port}...")
+        global_httpd.serve_forever()
+    threading.Thread(target=run_dashboard, daemon=True).start()
 
 
     # Build application
