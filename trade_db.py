@@ -689,7 +689,7 @@ class TradeDB:
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """
         if timestamp:
-            now_str = str(timestamp).replace(' ', 'T')
+            now_str = str(timestamp).replace('.', '-').replace(' ', 'T')
             if not now_str.endswith("Z"):
                 now_str += "Z"
         else:

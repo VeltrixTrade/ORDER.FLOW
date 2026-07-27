@@ -1196,11 +1196,21 @@ class WebDashboardHandler(SimpleHTTPRequestHandler):
                 
                 let html = "";
                 data.forEach(s => {
-                    let timestampStr = s.timestamp;
+                    let timestampStr = (s.timestamp || '').replace(/\\./g, '-').replace(' ', 'T');
                     if (timestampStr && !timestampStr.endsWith('Z')) {
                         timestampStr += 'Z';
                     }
-                    const date = new Date(timestampStr).toLocaleString("ar-EG");
+                    let date = '--';
+                    try {
+                        const d = new Date(timestampStr);
+                        if (!isNaN(d.getTime())) {
+                            date = d.toLocaleString("ar-EG");
+                        } else {
+                            date = s.timestamp || '--';
+                        }
+                    } catch(e) {
+                        date = s.timestamp || '--';
+                    }
                     const signalColor = s.signal_type === 'BUY' ? '#10b981' : s.signal_type === 'SELL' ? '#ef4444' : '#8b9bb4';
                     
                     let metrics = {};
