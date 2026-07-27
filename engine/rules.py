@@ -191,10 +191,30 @@ class TrendContinuationStrategy:
 
         # Confirmation Trigger: EMA 10 is completely outside wave zone in trend direction
         current_trend = None
-        if ema10 > max_ema and close_p >= min_ema:
-            current_trend = "BUY"
-        elif ema10 < min_ema and close_p <= max_ema:
-            current_trend = "SELL"
+        if ema10 > max_ema:
+            # BUY Trend: Candle must NOT be below the wave zone (min_ema)
+            if close_p >= min_ema:
+                current_trend = "BUY"
+            else:
+                # Cancel BUY setup if candle closed below min_ema
+                m_state["is_monitoring"] = False
+                m_state["monitored_candles_count"] = 0
+                m_state["pending_breakout"] = None
+                m_state["trend_bias"] = None
+                save_state(CONTINUATION_STATE_FILE, m_state)
+                return None
+        elif ema10 < min_ema:
+            # SELL Trend: Candle must NOT be above the wave zone (max_ema)
+            if close_p <= max_ema:
+                current_trend = "SELL"
+            else:
+                # Cancel SELL setup if candle closed above max_ema
+                m_state["is_monitoring"] = False
+                m_state["monitored_candles_count"] = 0
+                m_state["pending_breakout"] = None
+                m_state["trend_bias"] = None
+                save_state(CONTINUATION_STATE_FILE, m_state)
+                return None
 
         if current_trend is None:
             save_state(CONTINUATION_STATE_FILE, m_state)
@@ -204,7 +224,7 @@ class TrendContinuationStrategy:
         m_state["pending_breakout"] = None
         m_state["trend_bias"] = current_trend
 
-        # Pullback detection on current candle
+        # Pullback detection on current candle (Must touch wave zone)
         touches_wave = False
         if current_trend == "BUY" and low_p <= max_ema and close_p >= min_ema:
             touches_wave = True
